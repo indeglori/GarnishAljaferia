@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // Reservation Validation
+    function isValidReservation(data) {
+      return data.keys().hasAll(['name', 'email', 'date', 'time', 'guests', 'createdAt']) &&
+             data.keys().size() == 6 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 100 &&
+             data.date is string && data.date.size() <= 50 &&
+             data.time is string && data.time.size() <= 10 &&
+             data.guests is string && data.guests.size() <= 20 &&
+             data.createdAt is timestamp;
+    }
+
+    // Review Validation
+    function isValidReview(data) {
+      return data.keys().hasAll(['name', 'rating', 'comment', 'createdAt']) &&
+             data.keys().size() == 4 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             data.comment is string && data.comment.size() > 0 && data.comment.size() <= 1000 &&
+             data.createdAt is timestamp;
+    }
+
+    match /reservations/{reservationId} {
+      allow create: if isValidReservation(incoming());
+      allow read: if false; 
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isValidReview(incoming());
+    }
+  }
+}
